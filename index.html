@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>SQLite Web Query Tool</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 24px;
+    }
+    input, textarea, button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 14px;
+    }
+    textarea {
+      min-height: 120px;
+      font-family: monospace;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #334155;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background: #1e293b;
+    }
+    #status {
+      margin-top: 10px;
+      color: #93c5fd;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🔍 Executar queries em banco SQLite</h1>
+
+  <input type="file" id="dbFile" accept=".db,.sqlite,.bank" />
+
+  <textarea id="query" placeholder="Digite sua query SQL aqui...">
+SELECT name FROM sqlite_master WHERE type='table';
+  </textarea>
+
+  <button onclick="runQuery()">Executar Query</button>
+
+  <div id="status"></div>
+  <div id="result"></div>
+
+  <script>
+    let db = null;
+
+    const status = document.getElementById('status');
+    const result = document.getElementById('result');
+
+    initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}` })
+      .then(SQL => {
+        document.getElementById('dbFile').addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const buffer = await file.arrayBuffer();
+          db = new SQL.Database(new Uint8Array(buffer));
+          status.innerText = `Banco carregado: ${file.name}`;
+        });
+      });
+
+    function runQuery() {
+      if (!db) {
+        status.innerText = '⚠️ Carregue um banco SQLite primeiro.';
+        return;
+      }
+
+      const sql = document.getElementById('query').value;
+      result.innerHTML = '';
+
+      try {
+        const res = db.exec(sql);
+        if (res.length === 0) {
+          status.innerText = 'Query executada com sucesso (sem retorno).';
+          return;
+        }
+
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const tbody = document.createElement('tbody');
+
+        const headers = res[0].columns;
+        const rows = res[0].values;
+
+        const trHead = document.createElement('tr');
+        headers.forEach(h => {
+          const th = document.createElement('th');
+          th.textContent = h;
+          trHead.appendChild(th);
+        });
+        thead.appendChild(trHead);
+
+        rows.forEach(row => {
+          const tr = document.createElement('tr');
+          row.forEach(cell => {
+            const td = document.createElement('td');
+            td.textContent = cell;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        result.appendChild(table);
+        status.innerText = 'Query executada com sucesso.';
+
+      } catch (err) {
+        status.innerText = '❌ Erro: ' + err.message;
+      }
+    }
+  </script>
+
+</body>
+</html>
